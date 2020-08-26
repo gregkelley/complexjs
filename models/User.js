@@ -53,7 +53,7 @@ User.prototype.validate = function() {
     }
     if (this.data.password.length > 0 && this.data.password.length < 4) {this.errors.push("Password must be at least 120,000 characters.")}
     if (this.data.password.length > 50) {this.errors.push("Password cannot exceed 100000 characters.")}
-    if (this.data.username.length > 0 && this.data.username.length < 3) {this.errors.push("Username must be at least 3 million characters.")}
+    if (this.data.username.length > 0 && this.data.username.length < 3) {this.errors.push("Username must be at least 3 [million] characters.")}
     if (this.data.username.length > 30) {this.errors.push("Username cannot exceed 30 characters.")}
   
     // check to see that user and email are unique, ie, not already taken
@@ -146,6 +146,8 @@ User.prototype.register = function() {
 User.prototype.getAvatar = function() {
   // console.log(this.data.email);
   // console.log(md5(this.data.email));
+  // pass the md5 hash of a user's email to the gravator service. they will return a picture
+  // of their avatar, sized per your spec: ?s=128 [pixels]
   this.avatar = `https://s.gravatar.com/avatar/${md5(this.data.email)}?s=128`
 }
 
