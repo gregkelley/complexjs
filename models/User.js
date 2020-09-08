@@ -5,11 +5,13 @@ const usersCollection = require('../db').db().collection("users");
 const bcrypt = require('bcryptjs');
 const md5 = require('md5');
 
-let User = function(data) {
+let User = function(data, getAvatar) {
   //
   //this.someText = "Some Text"
   this.data = data;
   this.errors = [];
+  if (getAvatar == undefined) {getAvatar = false}
+  if (getAvatar) {this.getAvatar()}
 }
 
 // prototypes keep JS from creating a copy of the function for every single instance that is created.
@@ -149,6 +151,35 @@ User.prototype.getAvatar = function() {
   // pass the md5 hash of a user's email to the gravator service. they will return a picture
   // of their avatar, sized per your spec: ?s=128 [pixels]
   this.avatar = `https://s.gravatar.com/avatar/${md5(this.data.email)}?s=128`
+}
+
+// user profile request from browser monkey
+User.findByUsername = function(username) {
+  return new Promise(function(resolve, reject) {
+    if(typeof(username) != "string") {
+      reject()
+      return
+    }
+
+    usersCollection.findOne({username: username})
+      .then(function(userDoc) {
+        if(userDoc) {
+          // we found the user. now sort for the info we want to expose / send to the caller
+          userDoc = new User(userDoc, true)
+          userDoc = {
+            _id: userDoc.data._id,
+            username: userDoc.data.username,
+            avatar: userDoc.avatar
+          }
+          resolve(userDoc)
+        } else {
+          reject()
+        }
+      })
+      .catch(function() {
+        reject()
+      })
+  })
 }
 
 module.exports = User

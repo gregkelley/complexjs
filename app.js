@@ -4,7 +4,10 @@ const express = require('express');
 const session = require('express-session');
 const MongoStore = require('connect-mongo')(session);
 const flash = require('connect-flash');
+const markdown = require('marked');
 const app = express();
+const sanitizeHTML = require('sanitize-html');
+
 
 // configuration of a session
 let sessionOptions = session({
@@ -16,6 +19,32 @@ let sessionOptions = session({
 })
 app.use(sessionOptions);
 app.use(flash());
+
+// middleware thing. 
+// app.use is run by express for every request. 
+// note that it is *before* the router line.
+app.use(function(req, res, next) {
+  // make markdown function available from within ejs templates
+  res.locals.filterUserHTML = function(content) {
+    // use sanitize to remove everything except the items we specify
+    return sanitizeHTML (markdown(content), 
+      {allowedTags: ['p','br','ul','li','ol','strong','bold','i','h1','h2','h3','h4','em'], allowedAttributes: []});
+  }
+
+  // make all error and success flash msgs available to all templates
+  res.locals.errors = req.flash("errors");
+  res.locals.success = req.flash("success");
+
+  // make current user id available on the req object
+  if(req.session.user) {req.visitorId = req.session.user._id} 
+  else {req.visitorId = 0}
+
+  // make user session data available from within view templates
+  // use this instead of passing session data to an ejs template
+  // locals obj is available in ejs templates. can add properties
+  res.locals.user = req.session.user;
+  next();
+})
 
 const router = require('./router');
 

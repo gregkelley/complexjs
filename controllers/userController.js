@@ -1,6 +1,20 @@
 // Controller portion of the MVC structure
 const User = require('../models/User')
+const Post = require('../models/Post')
 
+// verify the user is logged in. Going to use this in many places to prevent page access if not logged in.
+// the .next() will then move on to the next thing in the router list.
+// big Brad called this: mustBeLoggedIn which is totally dumb.
+exports.loggedIn = function(req, res, next) {
+  if (req.session.user) {
+    next();
+  } else {
+    req.flash("errors", "not much logged in spanky.");
+    req.session.save(function() {
+      res.redirect('/');
+    })
+  }
+}
 
 exports.login = function(req, res) {
   // User object is created here, when User clicks login on login screen to login. 
@@ -9,7 +23,7 @@ exports.login = function(req, res) {
   user.login() // .login() is going to return a promise
     .then(function(result) {
       // session setup. Add new properties to req
-      req.session.user = {username: user.data.username, avatar: user.avatar}
+      req.session.user = {username: user.data.username, avatar: user.avatar, _id: user.data._id}
       // do not need the save() here because it happens automatically. However, we need to redirect 
       // *after* the save completes. thus:
       req.session.save(() => {
@@ -43,7 +57,7 @@ exports.register = function(req, res) {
   let user = new User(req.body);
   user.register() // this now returns a promise... ho lee fuck. cascading fukin shit storm.
     .then(() => {
-      req.session.user = {username: user.data.username, avatar: user.avatar}
+      req.session.user = {username: user.data.username, avatar: user.avatar, _id: user.data._id}
       req.session.save(()=>{
         res.redirect('/');
       })
@@ -60,14 +74,48 @@ exports.register = function(req, res) {
 
 // when url is /, ie, home page
 exports.home = function(req, res) {
-  //
+  // if user is logged in
   if(req.session.user) {
-    //
-    res.render('home-dashboard', {username: req.session.user.username, 
-                                  avatar: req.session.user.avatar});
+    // the app.use that sets a local user obj makes passing params unnecessary.
+    // res.render('home-dashboard', {username: req.session.user.username, 
+    //                               avatar: req.session.user.avatar});
+    res.render('home-dashboard');
   } else {
     // res.render('home-guest', {errors: req.errors.flash.data})
     // the above line works but using the flash pkg deletes the errors obj after we see it once.
-    res.render('home-guest', {errors: req.flash('errors'), regErrors: req.flash('regErrors')});
+    // next line, errors removed for streamlining. moved function to app.js
+    // res.render('home-guest', {errors: req.flash('errors'), regErrors: req.flash('regErrors')});
+    res.render('home-guest', {regErrors: req.flash('regErrors')});
   }
+}
+
+// when a user profile is requested. URL looks like: /profile/:username
+// so we can get the username from the :params
+exports.ifUserExists = function(req, res, next) {
+  User.findByUsername(req.params.username)
+    .then(function(userDocument) {
+      // create a new element on the req object to store what we just magically got
+      req.profileUser = userDocument
+      next()
+    })
+    .catch(function() {
+      res.render('404')
+    })
+  
+}
+
+exports.profilePostsScreen = function(req, res) {
+  // get posts from author. will get this from Post Model blah blah.
+  Post.findByAuthorId(req.profileUser._id)
+      .then(function(posts) {
+        res.render('profile', {
+          posts: posts,
+          profileUsername: req.profileUser.username,
+          profileAvatar: req.profileUser.avatar,
+        });
+      })
+      .catch(function() {
+        res.render('404')
+      })
+
 }
