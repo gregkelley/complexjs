@@ -1,5 +1,7 @@
 // create posts as submitted by users and stuff.
 const postsCollection = require('../db').db().collection("posts");
+const followsCollection = require('../db').db().collection('follows')
+
 // in mongo user ids are stored as a special data type so:
 const ObjectID = require('mongodb').ObjectID
 const User = require('./User');
@@ -95,13 +97,18 @@ Post.postQuery = function(uniqueOperations, visitorId) {
   // console.log('postQuery ' + visitorId)
   return new Promise(async function(resolve, reject) {
     let aggOperations = uniqueOperations.concat([
+      // select from users where posts.author == users._id
+      // local as in posts table since this is postController. Foreign being the other table, users.
+      // as: "authorDoc" -- 
+      // Brad says: it is a virtual field added to the current post object... well fuck me.
       {$lookup: {from: "users", localField: "author", foreignField: "_id", as: "authorDocument"}},
+      // spell out which fields we want to return
       {$project: {
-        title: 1,
+        title: 1,  // 1=== yes, do include this field.
         body: 1,
         createdDate: 1,
         authorId: "$author", // $ indicates the actual field in mongodb, not a text string.
-        author: {$arrayElemAt: ["$authorDocument", 0]}
+        author: {$arrayElemAt: ["$authorDocument", 0]} // the obj returned from $lookup. Gets overwritten below
       }}
     ])
 
@@ -115,6 +122,10 @@ Post.postQuery = function(uniqueOperations, visitorId) {
     posts = posts.map(function(post) {
       // create a property of isVisitorOwner that can be leveraged to check if the user has permission for stuff.
       post.isVisitorOwner = post.authorId.equals(visitorId);
+
+      // hlf. Don't want to leak unnecessary info so we need to get rid of authorId at this juncture. L87, end.
+      post.authorId = undefined   // just overwrite it so the info is not available on the front end
+
       post.author = {
         username: post.author.username,
         avatar: new User(post.author, true).avatar
@@ -125,7 +136,7 @@ Post.postQuery = function(uniqueOperations, visitorId) {
   })
 }
 
-
+// 
 Post.findSingleById = function(id, visitorId) {
   return new Promise(async function(resolve, reject) {
     // first, validate incoming ID
@@ -154,6 +165,7 @@ Post.findByAuthorId = function(authorId) {
   ])
 }
 
+// a luser has asked to delete one of their posts. yay!
 Post.delete = function(postId, currentUserId) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -173,4 +185,40 @@ Post.delete = function(postId, currentUserId) {
   })
 }
 
+Post.search = function(searchTerm) {
+  return new Promise(async (resolve, reject) => {
+    console.log('Post.search')
+    if(typeof(searchTerm) == "string") {
+      let posts = await Post.postQuery([
+        // looking for the searchTerm anywhere in the string
+        {$match: {$text: {$search: searchTerm}}},
+        {$sort: {score: {$meta: "textScore"}}}
+      ])
+      resolve(posts)
+    } else {
+      reject()
+    }
+  })
+}
+
+Post.countPostsByAuthor = function(id) {
+  return new Promise(async(resolve, reject) => {
+    let postCount = await postsCollection.countDocuments({author: id})
+    resolve(postCount)
+  })
+}
+
+Post.getFeed = async function(id) {
+  // get an array of users we follow with posts
+  let followedUsers = await followsCollection.find({authorId: new ObjectID(id)}).toArray()
+  // sort out just the followedUsers ids from the list of objects returned
+  followedUsers = followedUsers.map(function(followDoc) {
+    return followDoc.followedId
+  })
+  // look for posts where author is in the array
+  return Post.postQuery([
+    {$match: {author: {$in: followedUsers}}},
+    {$sort: {createdDate: -1}} // sort w/ newest at top
+  ])
+}
 module.exports = Post;

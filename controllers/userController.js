@@ -1,6 +1,7 @@
 // Controller portion of the MVC structure
 const User = require('../models/User')
-const Post = require('../models/Post')
+const Post = require('../models/Post');
+const Follow = require('../models/Follow');
 
 // verify the user is logged in. Going to use this in many places to prevent page access if not logged in.
 // the .next() will then move on to the next thing in the router list.
@@ -14,6 +15,39 @@ exports.loggedIn = function(req, res, next) {
       res.redirect('/');
     })
   }
+}
+
+// display info that is the same on several screens. ie, Follow links and shit.
+// will be called from the route.js sequences
+exports.sharedProfileData = async function(req, res, next) {
+  let isFollowing = false
+  // req.iAmMe = req.profileUser._id == req.visitorId
+  req.iAmMe = false
+  if(req.session.user) {
+    // set a boolean to note if you are looking at your own profile. Thus not display the Follow button.
+    req.iAmMe = req.profileUser._id.equals( req.session.user._id)
+    isFollowing = await Follow.isVisitorFollowing(req.profileUser._id, req.visitorId)
+  }
+
+  req.isFollowing = isFollowing
+
+  // retrieve counts: posts, followers, following
+  // this method is inefficient, these calls are independent so they all need to be launched and then wait.
+  // let postCount = await Post.countPostsByAuthor(req.profileUser._id)
+  // let followerCount = await Follow.countFollowersById(req.profileUser._id)
+  // let followingCount = await Follow.countFollowingById(req.profileUser._id)
+
+  let postCountP = Post.countPostsByAuthor(req.profileUser._id)
+  let followerCountP = Follow.countFollowersById(req.profileUser._id)
+  let followingCountP =  Follow.countFollowingById(req.profileUser._id)
+
+  let [postCount, followerCount, followingCount] =
+      await Promise.all([postCountP, followerCountP, followingCountP])
+  req.postCount = postCount
+  req.followerCount = followerCount
+  req.followingCount = followingCount
+
+  next()   // profilePostsScreen
 }
 
 exports.login = function(req, res) {
@@ -73,13 +107,16 @@ exports.register = function(req, res) {
 }
 
 // when url is /, ie, home page
-exports.home = function(req, res) {
+exports.home = async function(req, res) {
   // if user is logged in
   if(req.session.user) {
+    // fetch feed of posts for current user
+    let posts = await Post.getFeed(req.session.user._id)
+
     // the app.use that sets a local user obj makes passing params unnecessary.
     // res.render('home-dashboard', {username: req.session.user.username, 
     //                               avatar: req.session.user.avatar});
-    res.render('home-dashboard');
+    res.render('home-dashboard', {posts: posts});
   } else {
     // res.render('home-guest', {errors: req.errors.flash.data})
     // the above line works but using the flash pkg deletes the errors obj after we see it once.
@@ -104,18 +141,61 @@ exports.ifUserExists = function(req, res, next) {
   
 }
 
+// display posts from some particular user profile. or sumptin
 exports.profilePostsScreen = function(req, res) {
   // get posts from author. will get this from Post Model blah blah.
   Post.findByAuthorId(req.profileUser._id)
       .then(function(posts) {
         res.render('profile', {
+          currentPage: "posts",
           posts: posts,
           profileUsername: req.profileUser.username,
           profileAvatar: req.profileUser.avatar,
-        });
+          isFollowing: req.isFollowing,
+          iAmMe: req.iAmMe,
+          counts: {postCount: req.postCount, followerCount: req.followerCount, followingCount: req.followingCount}
+        })
       })
       .catch(function() {
         res.render('404')
       })
 
+}
+
+// when clicky on Followers button thing
+exports.profileFollowersScreen = async function(req, res) {
+  try {
+      // get an array of users who are followed by the current user
+      let followers = await Follow.getFollowersById(req.profileUser._id)
+      res.render('profile-followers', {
+        currentPage: "followers",
+        followers: followers,
+        profileUsername: req.profileUser.username,
+        profileAvatar: req.profileUser.avatar,
+        isFollowing: req.isFollowing,
+        iAmMe: req.iAmMe,   // isVisitorsProfile,
+        counts: {postCount: req.postCount, followerCount: req.followerCount, followingCount: req.followingCount}
+      })
+  } catch {
+    res.render('404')
+  }
+}
+
+// when clicky on Following button thing
+exports.profileFollowingScreen = async function(req, res) {
+  try {
+      // get an array of users who are followed by the current user
+      let following = await Follow.getFollowingById(req.profileUser._id)
+      res.render('profile-following', {
+        currentPage: "following",
+        followers: following,
+        profileUsername: req.profileUser.username,
+        profileAvatar: req.profileUser.avatar,
+        isFollowing: req.isFollowing,
+        iAmMe: req.iAmMe,   // isVisitorsProfile,
+        counts: {postCount: req.postCount, followerCount: req.followerCount, followingCount: req.followingCount}
+      })
+  } catch {
+    res.render('404')
+  }
 }
