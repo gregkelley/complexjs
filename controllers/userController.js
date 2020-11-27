@@ -2,6 +2,7 @@
 const User = require('../models/User')
 const Post = require('../models/Post');
 const Follow = require('../models/Follow');
+const jwt = require('jsonwebtoken');
 
 // verify the user is logged in. Going to use this in many places to prevent page access if not logged in.
 // the .next() will then move on to the next thing in the router list.
@@ -16,6 +17,19 @@ exports.loggedIn = function(req, res, next) {
     })
   }
 }
+
+// API version of bitch logged In yes. Think we need to look at the incoming token for verification. Do 
+// you think Brad will essplane this? doubt it.
+exports.apiLoggedIn = function(req, res, next) {
+  try {
+    // verify returns the data that was stored in the token. how ... interesting.
+    req.apiUser = jwt.verify(req.body.token, process.env.JWTSECRET)
+    next()
+  } catch {
+    res.json("Sorry, must provide a valid token.")
+  }
+}
+
 
 // display info that is the same on several screens. ie, Follow links and shit.
 // will be called from the route.js sequences
@@ -197,5 +211,32 @@ exports.profileFollowingScreen = async function(req, res) {
       })
   } catch {
     res.render('404')
+  }
+}
+
+// API functions
+
+exports.apiLogin = function(req, res) {
+  let user = new User(req.body);
+  user.login() // .login() is going to return a promise
+    .then(function(result) {
+      // send a JSON web token back
+      // id: whatever data we need to return, secret phrase, expiration time frame. default
+      // is to never expire. ex: 7d, 30d, 120s, etc.
+      res.json(jwt.sign({_id: user.data._id}, process.env.JWTSECRET, {expiresIn: '30m'}))
+    })
+    .catch(function(err){
+      console.log('The API login error: ', err);
+      res.json("your login failed all up in that booty")
+    });
+}
+
+exports.apiGetPostsByUsername = async function(req, res) {
+  try {
+    let authorDoc = await User.findByUsername(req.params.username)
+    let posts = await Post.findByAuthorId(authorDoc._id)
+    res.json(posts)
+  } catch {
+    res.json("Sorry padwan. That user is not of exist.")
   }
 }

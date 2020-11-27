@@ -2,11 +2,15 @@
   <% if (user && !iAmMe) {
     if(isFollowing) { %>
       <form class="ml-2 d-inline" action="/removeFollow/<%= profileUsername %>" method="POST">
+        <!-- Lesson 111 csrf thing. name must be _csrf. The pkg looks for that -->
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <!-- <button class="btn btn-primary btn-sm">Follow <i class="fas fa-user-plus"></i></button> -->
         <button class="btn btn-danger btn-sm">Stop Following <i class="fas fa-user-times"></i></button>
       </form>
         <% } else { %>
       <form class="ml-2 d-inline" action="/addFollow/<%= profileUsername %>" method="POST">
+        <!-- Lesson 111 csrf thing. name must be _csrf. The pkg looks for that -->
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <button class="btn btn-primary btn-sm">Follow <i class="fas fa-user-plus"></i></button>
         <!-- <button class="btn btn-danger btn-sm">Stop Following <i class="fas fa-user-times"></i></button> -->
       </form>

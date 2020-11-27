@@ -78,7 +78,7 @@ User.prototype.validate = function() {
 // called from userController when someone tries to log in
 User.prototype.login = function() {
   return new Promise( (resolve, reject) =>  {
-    this.cleanup();
+    this.cleanup(); 
     // what are we trying to find, function to call when db call completes. ie, a callback
     // usersCollection.findOne({username: this.data.username}, (err, theUser) => {
     //   // have to use arrow function here to not fuck the value of 'this.' keyword. funkin awesome

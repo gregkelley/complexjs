@@ -5,9 +5,15 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo')(session);
 const flash = require('connect-flash');
 const markdown = require('marked');
+const csrf = require('csurf')
 const app = express();
 const sanitizeHTML = require('sanitize-html');
 
+// set up the app receive data in the two most common methods
+app.use(express.urlencoded({extended: false}));
+app.use(express.json());
+
+app.use('/api', require('./router-api'))
 
 // configuration of a session
 let sessionOptions = session({
@@ -48,10 +54,6 @@ app.use(function(req, res, next) {
 
 const router = require('./router');
 
-// set up the app receive data in the two most common methods
-app.use(express.urlencoded({extended: false}));
-app.use(express.json());
-
 // make the public folder great again.
 app.use(express.static('public'));
 
@@ -59,10 +61,31 @@ app.use(express.static('public'));
 app.set('views', 'views')
 app.set('view engine', 'ejs') // use ejs engine for html templates
 
+// L111 - set up so that any function that modifies state will need a valid csrf token
+app.use(csrf())
+// make csrf token available
+app.use(function(req, res, next) {
+  // generate the token, done in the csurf pkg
+  res.locals.csrfToken = req.csrfToken()
+  next()
+})
+
 // app.get('/', function(req, res) {
 //   res.render('home-guest')   // pulls in the ejs file
 // })
 app.use('/', router);
+
+// error handling for cross site forgery catches etc.
+app.use(function(err, req, res, next) {
+  if(err) {
+    if(err.code == "EBADCSRFTOKEN") {
+      req.flash('errors', "cross site request forgery detected.")
+      req.session.save(() => res.redirect('/'))
+    } else {
+      res.render('404')
+    }
+  }
+}) 
 
 // app.listen(3000);
 // we have to export ourself cuz another file is going to start listening after we

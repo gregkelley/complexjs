@@ -5,6 +5,8 @@ export default class Search {
 
   // 1. create properties that select DOM elements and keep track of useful data
   constructor() {
+    // cross site data to allow this to work
+    this._csrf = document.querySelector('[name="_csrf"]').value
     // lookup the html class of the search icon in the header.
     this.headerSearchIcon = document.querySelector(".header-search-icon")
     this.injectHTML()  // brad put this at the top...
@@ -70,7 +72,7 @@ export default class Search {
   sendRequest() {
     // axios call returns a Promise. 
     //console.log('sendRequest before axios call ' + this.inputField.value)
-    axios.post('/search', {searchTerm: this.inputField.value})
+    axios.post('/search', {_csrf: this._csrf, searchTerm: this.inputField.value})
       .then((response)=>{
         console.log(response.data)
         this.renderResultsHTML(response.data)

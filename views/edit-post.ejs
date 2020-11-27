@@ -18,7 +18,9 @@
         <textarea required name="body" id="post-body" class="body-content tall-textarea form-control" 
             type="text"><%= post.body %></textarea>
       </div>
-      
+      <!-- Lesson 111 csrf thing. name must be _csrf. The pkg looks for that -->
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
       <button class="btn btn-primary">Save Updates</button>
       <a class="btn btn-secondary ml-5" href="/post/<%= post._id %>">&laquo; Cancel</a>
     </form>

@@ -1,3 +1,7 @@
+ // to start the app:
+ // npm run watch
+
+ // to view the web interface:  localhost:3000
  
   // "dependencies": {
   //   "@babel/core": "^7.10.3",

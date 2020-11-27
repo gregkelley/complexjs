@@ -2,7 +2,6 @@
 const Post = require('../models/Post');
 
 exports.viewCreateScreen = function(req, res) {
- 
     res.render('create-post');
 }
 
@@ -24,6 +23,34 @@ exports.createPost = function(req, res) {
         req.session.save(() => res.redirect('/create-post'))
       })
 }
+
+// API call to create a new post. The data payload includes the title, body and _id of the person who owns the post
+exports.apiCreatePost = function(req, res) {
+  // store the new post in a database or sumptin
+  let newPost = new Post(req.body, req.apiUser._id);
+
+  // create() returns a Promise
+  newPost.create()
+      // newId comes from the Post create function. Is pulled from the resolved data from mongodb insert.
+      .then(function(newId) {
+        res.json("nude API post cremated.") // will that work?
+      })
+      .catch(function(errors) {
+        console.log("apiCreatePost has failed.")
+        res.json(errors);
+      })
+}
+
+exports.apiDeletePost = function(req, res) {
+  Post.delete(req.params.id, req.apiUser._id)
+    .then(() => {
+      res.json("Success in the Delete yo mon")
+    })
+    .catch(() => {
+      res.json("not you are permission having butt munch")
+    })
+}
+
 
 // big Brad called this viewSingle
 exports.viewPost = async function(req, res) {
